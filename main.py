@@ -1,6 +1,5 @@
 # XBee modem
 
-import umqtt
 import xbee
 
 from umqtt.simple import MQTTClient
@@ -9,8 +8,6 @@ import time, network
 from machine import UART
 uart = UART(0,baudrate=115200)
 uart.init(baudrate=115200, bits=8, parity=None, stop=1)
-
-x = xbee.XBee()
 
 # AWS endpoint parameters
 host = b'a189c4jm4usz34-ats'  # ex: b'abcdefg1234567'
@@ -22,13 +19,14 @@ ssl_params = {'keyfile': "/flash/cert/aws.key",
               'certfile': "/flash/cert/aws.crt",
               'ca_certs': "/flash/cert/aws.ca"}  # ssl certs
 
-wait = 500 # wait for half a second
-command = "None"
-on = True
-sample = ""
-msgs_received = False
-
 c = MQTTClient(client_id, aws_endpoint, ssl=True, ssl_params=ssl_params)
+x = xbee.XBee()
+
+wait = 500 # wait for half a second
+command = "None" # commands sent from aws
+on = True # if the buoy is sampling
+sample = "" # final sample sent to aws
+msgs_received = False # if there was a message sent from aws
 
 def sub_cb(topic, msg):
     global msgs_received
@@ -67,18 +65,28 @@ while True:
 
         # get data from board
         data = uart.readline()
-        data = data.decode()
-        data.replace("\n", "")
-        if data is "sleep":
+        if data is b'sleep':
             on = False
-        # send sample data to aws
+        # if the buffer can handle a full sample
         elif data is not None:
+            # publish data to aws
+            data = data.decode()
+            data.replace("\n", "")
+            data = '{"message": "' + data + '"}'
+            c.publish('buoy/data', data)
+        ''' 
+        # if the buffer is too small for a full sample
+        elif data is not None:
+            data = data.decode()
+            data.replace("\n", "")
             sample = sample + data
-        elif data is "end":
+        # send sample data to aws
+        elif data is b'end':
             # publish data to aws
             sample = '{"message": "' + sample + '"}'
             c.publish('buoy/data', sample)
             sample = ""
+        '''
 
     c.disconnect()
     # sleep until pin wake
