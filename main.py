@@ -48,6 +48,8 @@ def check_sub():
 
 def send_command():
     global command
+    command.replace('{"message" "', "")
+    command.replace('"}', "")
     command = bytearray(command, 'uft-8')
     uart.write(command)
 
