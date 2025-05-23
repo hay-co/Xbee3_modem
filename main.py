@@ -1,6 +1,7 @@
 # XBee modem
 
 import umqtt
+import xbee
 
 from umqtt.simple import MQTTClient
 import time, network
@@ -8,6 +9,8 @@ import time, network
 from machine import UART
 uart = UART(0,baudrate=115200)
 uart.init(baudrate=115200, bits=8, parity=None, stop=1)
+
+x = xbee.XBee()
 
 # AWS endpoint parameters
 host = b'a189c4jm4usz34-ats'  # ex: b'abcdefg1234567'
@@ -19,14 +22,11 @@ ssl_params = {'keyfile': "/flash/cert/aws.key",
               'certfile': "/flash/cert/aws.crt",
               'ca_certs': "/flash/cert/aws.ca"}  # ssl certs
 
-wait = 1 # wait for 1 s
+wait = 500 # wait for half a second
 command = "None"
-
+on = True
+sample = ""
 msgs_received = False
-
-conn = network.Cellular()
-while not conn.isconnected():
-    time.sleep(4)
 
 c = MQTTClient(client_id, aws_endpoint, ssl=True, ssl_params=ssl_params)
 
@@ -46,25 +46,41 @@ def check_sub():
         c.check_msg()
         time.sleep(1)
     if command != "none":
-        execute_command()
+        send_command()
 
-def execute_command():
+def send_command():
     global command
-    byte_command = bytearray(command, 'uft-8')
-    uart.write(byte_command)
+    command = bytearray(command, 'uft-8')
+    uart.write(command)
 
-c.connect()
+conn = network.Cellular()
 
 while True:
+    while not conn.isconnected():
+        time.sleep(4)
+    uart.write(bytearray(b'connected'))
+    c.connect()
+    while on is True:
 
-    # check for commands from aws
-    check_sub()
+        # check for commands from aws
+        check_sub()
 
-    # get data from board
-    sample = uart.readline()
+        # get data from board
+        data = uart.readline()
+        data = data.decode()
+        data.replace("\n", "")
+        if data is "sleep":
+            on = False
+        # send sample data to aws
+        elif data is not None:
+            sample = sample + data
+        elif data is "end":
+            # publish data to aws
+            sample = '{"message": "' + sample + '"}'
+            c.publish('buoy/data', sample)
+            sample = ""
 
-    # send sample data to aws
-    if sample is not None:
-        # publish data to aws
-        c.publish("buoy/data", sample)
-
+    c.disconnect()
+    # sleep until pin wake
+    x.sleep_now(None, True)
+    on = True
