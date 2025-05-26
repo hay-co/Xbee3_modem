@@ -54,6 +54,8 @@ def gps_cb(gps):
         uart.write(sys_time)
         global location
         location = gps
+    else:
+        uart.write(bytearray(b'gps error\n'))
 
 def send_command():
     global command
@@ -66,10 +68,15 @@ conn = network.Cellular()
 
 def main():
     gnss.single_acquisition(gps_cb,60)
-    while not conn.isconnected():
+    attempts = 0
+    while (not conn.isconnected()) and (attempts < 30):
         time.sleep(4)
-    uart.write(bytearray(b'connected'))
+        attempts += 1
+    if not conn.isconnected():
+        uart.write(bytearray(b'connection failed\n'))
+        x.sleep_now(None)
     c.connect()
+    uart.write(bytearray(b'connected\n'))
     global location
     if location is not None:
         location = '{"message": "' + location + '"}'
@@ -82,7 +89,7 @@ def main():
 
         # get data from board
         data = uart.readline()
-        if data is b'sleep':
+        if data is b'sleep\n':
             on = False
         # if the buffer can handle a full sample
         elif data is not None:
@@ -106,6 +113,6 @@ def main():
         '''
 
     c.disconnect()
-    uart.write(bytearray(b'disconnected'))
+    uart.write(bytearray(b'disconnected\n'))
     # sleep forever
     x.sleep_now(None)
