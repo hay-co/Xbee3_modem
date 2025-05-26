@@ -5,6 +5,8 @@ import xbee
 from umqtt.simple import MQTTClient
 import time, network
 
+from digi import gnss
+
 from machine import UART
 uart = UART(0,baudrate=115200)
 uart.init(baudrate=115200, bits=8, parity=None, stop=1)
@@ -24,8 +26,8 @@ x = xbee.XBee()
 
 wait = 500 # wait for half a second
 command = "None" # commands sent from aws
-on = True # if the buoy is sampling
 sample = "" # final sample sent to aws
+location = "" # gps data
 msgs_received = False # if there was a message sent from aws
 
 def sub_cb(topic, msg):
@@ -46,20 +48,33 @@ def check_sub():
     if command != "none":
         send_command()
 
+def gps_cb(gps):
+    if gps is not None:
+        sys_time = gps["timestamp"]
+        uart.write(sys_time)
+        global location
+        location = gps
+
 def send_command():
     global command
-    command.replace('{"message" "', "")
+    command.replace('{"message": "', "")
     command.replace('"}', "")
     command = bytearray(command, 'uft-8')
     uart.write(command)
 
 conn = network.Cellular()
 
-while True:
+def main():
+    gnss.single_acquisition(gps_cb,60)
     while not conn.isconnected():
         time.sleep(4)
     uart.write(bytearray(b'connected'))
     c.connect()
+    global location
+    if location is not None:
+        location = '{"message": "' + location + '"}'
+        c.publish('buoy/data', location)
+    on = True  # if the buoy is sampling
     while on is True:
 
         # check for commands from aws
@@ -91,6 +106,6 @@ while True:
         '''
 
     c.disconnect()
-    # sleep until pin wake
-    x.sleep_now(None, True)
-    on = True
+    uart.write(bytearray(b'disconnected'))
+    # sleep forever
+    x.sleep_now(None)
