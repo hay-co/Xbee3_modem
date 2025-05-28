@@ -1,6 +1,6 @@
 # XBee modem
 
-import xbee
+import xbee, datetime
 
 from umqtt.simple import MQTTClient
 import time, network
@@ -8,7 +8,7 @@ import time, network
 from digi import gnss
 
 from machine import UART
-uart = UART(0,baudrate=115200)
+uart = UART(1,baudrate=115200)
 uart.init(baudrate=115200, bits=8, parity=None, stop=1)
 
 # AWS endpoint parameters
@@ -25,9 +25,8 @@ c = MQTTClient(client_id, aws_endpoint, ssl=True, ssl_params=ssl_params)
 x = xbee.XBee()
 
 wait = 500 # wait for half a second
-command = "None" # commands sent from aws
-sample = "" # final sample sent to aws
-location = "" # gps data
+command = bytearray(b"") # commands sent from aws
+location = bytearray(b"") # gps data
 msgs_received = False # if there was a message sent from aws
 
 def sub_cb(topic, msg):
@@ -38,81 +37,78 @@ def sub_cb(topic, msg):
 
 def check_sub():
     c.set_callback(sub_cb)
-    c.subscribe("buoy/data")
+    c.subscribe("xbee/test")
     global msgs_received
     msgs_received = False
     timeout = time.time() + wait
     while (not msgs_received) and (time.time() < timeout):
         c.check_msg()
         time.sleep(1)
-    if command != "none":
+    if command != b'':
+        print(command)
         send_command()
 
-def gps_cb(gps):
+def location_cb(gps):
     if gps is not None:
-        sys_time = gps["timestamp"]
-        uart.write(sys_time)
+        sys_time = str(gps["timestamp"] - 363896460)
+        uart.write(bytearray(sys_time, 'utf-8'))
+        print(sys_time + "\n")
+        print(str(gps["latitude"]) + "\n")
+        print(str(gps["longitude"]) + "\n")
+        print(str(gps["altitude"]) + "\n")
         global location
-        location = gps
+        location = bytearray(str(gps["latitude"]) + ", " + str(gps["longitude"]) + ", " + str(gps["altitude"]), 'utf-8')
     else:
         uart.write(bytearray(b'gps error\n'))
+        print("gps error\n")
 
 def send_command():
     global command
-    command.replace('{"message": "', "")
-    command.replace('"}', "")
-    command = bytearray(command, 'uft-8')
+    command = command[16:-3]
+    command = command
+    print(command)
     uart.write(command)
 
 conn = network.Cellular()
 
 def main():
-    gnss.single_acquisition(gps_cb,60)
+    gnss.single_acquisition(location_cb,60)
+    time.sleep(60)
     attempts = 0
-    while (not conn.isconnected()) and (attempts < 30):
+    while (not conn.isconnected()) and (attempts < 15):
         time.sleep(4)
         attempts += 1
     if not conn.isconnected():
         uart.write(bytearray(b'connection failed\n'))
+        print("connection failed\n")
         x.sleep_now(None)
     c.connect()
     uart.write(bytearray(b'connected\n'))
+    print("connected\n")
     global location
-    if location is not None:
-        location = '{"message": "' + location + '"}'
-        c.publish('buoy/data', location)
+    if location != b"":
+        location = b'{"message": "' + location + b'"}'
+        c.publish('xbee/test', location)
     on = True  # if the buoy is sampling
     while on is True:
-
         # check for commands from aws
         check_sub()
-
         # get data from board
         data = uart.readline()
-        if data is b'sleep\n':
+        if data == b'sleep\n':
             on = False
         # if the buffer can handle a full sample
         elif data is not None:
             # publish data to aws
-            data = data.decode()
-            data.replace("\n", "")
-            data = '{"message": "' + data + '"}'
-            c.publish('buoy/data', data)
-        ''' 
-        # if the buffer is too small for a full sample
-        elif data is not None:
-            data = data.decode()
-            data.replace("\n", "")
-            sample = sample + data
-        # send sample data to aws
-        elif data is b'end':
-            # publish data to aws
-            sample = '{"message": "' + sample + '"}'
-            c.publish('buoy/data', sample)
-            sample = ""
-        '''
-
+            sample = bytearray(data)
+            sample = sample[:-1]
+            sample = b'{"message": "' + sample + b'"}'
+            c.publish('xbee/test', sample)
     c.disconnect()
     uart.write(bytearray(b'disconnected\n'))
+    print("disconnected\n")
     # sleep forever
     x.sleep_now(None)
+
+if __name__ == "__main__":
+    main()
