@@ -14,7 +14,7 @@ uart.init(baudrate=115200, bits=8, parity=None, stop=1)
 # AWS endpoint parameters
 host = b'a189c4jm4usz34-ats'    # ex: b'abcdefg1234567'
 region = b'ca-central-1'        # ex: b'us-east-1'
-client_id = b'XBee_2'             # ex: b'XBee'
+client_id = b'XBee'             # ex: b'XBee' must be different for every device
 
 aws_endpoint = b'%s.iot.%s.amazonaws.com' % (host, region)
 ssl_params = {'keyfile': "/flash/cert/aws.key",
@@ -32,14 +32,26 @@ def sub_cb(topic, msg):
     command = msg
 
 def check_sub():
-    c.check_msg()
+    try:
+        c.check_msg()
+    except OSError as e:
+        stdout.write("Error: check_msg failed: %s\n" % str(e))
+        try:
+            c.connect()
+            c.set_callback(sub_cb)
+            c.subscribe('buoy/commands')
+            stdout.write("connected\n")
+        except Exception as e:
+            stdout.write("connection failed: %s\n" % str(e))
+            x.sleep_now(100)
     global command
     if command is not None:
-        command = command[16:-3]
+        command = command[12:-2]
         stdout.write(command)
-        print("")
+        print("") # commands do not work without these empty print statements
         stdout.write("")
         command = None
+
 
 conn = network.Cellular()
 
@@ -54,22 +66,37 @@ def main():
         stdout.write("connection failed\n")
         x.sleep_now(100)
     else: # connect to aws
-        c.connect()
+        try:
+            c.connect()
+        except Exception as e:
+            stdout.write("connection failed: %s\n" % str(e))
+            x.sleep_now(100)
         stdout.write("connected\n")
     # subscribe to receive commands from aws
     c.set_callback(sub_cb)
     c.subscribe('buoy/commands')
     stdout.write("")
     sample_loop = True  # if the buoy is sampling
+    #keep_alive = 0
     while sample_loop is True:
+        # keep the connection from timing out
+        #if keep_alive > 200:
+            #c.ping()
+            #keep_alive = 0
+        #keep_alive += 1
         # check for commands from aws
         check_sub()
         # get data from logger board
         data = stdin.readline()
-    if data is not None and len(data) > 1:
-        # format for JSON and publish data to aws
-        sample = b'{"message": "' + data[:-1] + b'"}'
-        c.publish('buoy/data', sample)
+        #if data is not None and len(data) > 1:
+        if data.startswith(b'CT'):
+            # format for JSON and publish data to aws
+            sample = b'{"message": "' + data[:-1] + b'"}'
+            c.publish('buoy/data', sample)
+        elif len(data) > 1:
+            # format for JSON and publish data to aws
+            sample = b'{"message": "' + data[:-1] + b'"}'
+            c.publish('buoy/response', sample)
 
     c.disconnect()
     stdout.write("disconnected\n")
