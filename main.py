@@ -39,7 +39,7 @@ def check_sub():
     try:
         c.check_msg()
     except OSError as e:
-        stdout.write("Error, check_msg failed: %s\n" % str(e))
+        stdout.write("ERROR, check_msg failed: %s\n" % str(e))
         reconnect()
     global command
     if command is not None:
@@ -60,7 +60,7 @@ def reconnect():
         reconnect()
     c.set_callback(sub_cb)
     c.subscribe(command_topic)
-    stdout.write("connected\n")
+    stdout.write("reconnected\n")
 
 conn = network.Cellular()
 
@@ -98,7 +98,7 @@ def main():
             try:
                 c.publish(data_topic, sample)
             except OSError as e:
-                stdout.write("Error, publish failed: %s\n" % str(e))
+                stdout.write("ERROR, publish failed: %s\n" % str(e))
                 reconnect()
         elif len(data) > 1:
             # format for JSON and publish data to aws
@@ -106,7 +106,7 @@ def main():
             try:
                 c.publish(response_topic, sample)
             except OSError as e:
-                stdout.write("Error, publish failed: %s\n" % str(e))
+                stdout.write("ERROR, publish failed: %s\n" % str(e))
                 reconnect()
 
     c.disconnect()
