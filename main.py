@@ -14,7 +14,7 @@ uart.init(baudrate=115200, bits=8, parity=None, stop=1)
 # AWS endpoint parameters
 host = b'a189c4jm4usz34-ats'    # ex: b'abcdefg1234567'
 region = b'ca-central-1'        # ex: b'us-east-1'
-client_id = b'XBee'             # ex: b'XBee' must be different for every device
+client_id = b'XBee_01'             # ex: b'XBee' must be different for every device
 
 status_topic = 'ct1003/status'
 command_topic = 'ct1003/commands'
@@ -83,7 +83,11 @@ def main():
         stdout.write("connected\n")
     # subscribe to receive commands from aws
     c.set_callback(sub_cb)
-    c.subscribe(command_topic)
+    try:
+        c.subscribe(command_topic)
+    except Exception as e:
+        stdout.write("subscribe failed: %s\n" % str(e))
+        reconnect()
     stdout.write("")
     sample_loop = True  # if the buoy is sampling
     while sample_loop is True:
