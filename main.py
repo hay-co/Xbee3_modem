@@ -86,7 +86,7 @@ def main():
     try:
         c.subscribe(command_topic)
     except Exception as e:
-        stdout.write("subscribe failed: %s\n" % str(e))
+        stdout.write("ERROR, subscribe failed: %s\n" % str(e))
         reconnect()
     stdout.write("")
     sample_loop = True  # if the buoy is sampling
