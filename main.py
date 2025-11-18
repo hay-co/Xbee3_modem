@@ -12,25 +12,43 @@ uart = UART(1,baudrate=115200)
 uart.init(baudrate=115200, bits=8, parity=None, stop=1)
 
 # AWS endpoint parameters
-host = b'a189c4jm4usz34-ats'    # ex: b'abcdefg1234567'
-region = b'ca-central-1'        # ex: b'us-east-1'
-client_id = b'XBee_01'             # ex: b'XBee' must be different for every device
+# noinspection SpellCheckingInspection
+host = b'a189c4jm4usz34-ats'  # ex: b'abcdefg1234567'
+# noinspection SpellCheckingInspection
+region = b'ca-central-1'      # ex: b'us-east-1'
 
-status_topic = 'ct1003/status'
-command_topic = 'ct1003/commands'
-data_topic = 'ct1003/data'
-response_topic = 'ct1003/response'
+stdout.write("ready for client id\n")
+client_id = stdin.readline()
+stdout.write(client_id)
+stdin.flush()
+stdout.write("ready for buoy name\n")
+buoy_name = stdin.readline()
+stdout.write(buoy_name)
+stdin.flush()
 
+# noinspection PyTypeChecker
+status_topic = buoy_name[:-1] + "/status"
+# noinspection PyTypeChecker
+command_topic = buoy_name[:-1] + "/commands"
+# noinspection PyTypeChecker
+data_topic = buoy_name[:-1] + "/data"
+# noinspection PyTypeChecker
+response_topic = buoy_name[:-1] + "/response"
+
+# noinspection SpellCheckingInspection
 aws_endpoint = b'%s.iot.%s.amazonaws.com' % (host, region)
+# noinspection SpellCheckingInspection
 ssl_params = {'keyfile': "/flash/cert/aws.key",
               'certfile': "/flash/cert/aws.crt",
               'ca_certs': "/flash/cert/aws.ca"}  # ssl certs
 
-c = MQTTClient(client_id, aws_endpoint, ssl=True, ssl_params=ssl_params)
+c = MQTTClient(client_id[:-1], aws_endpoint, ssl=True, ssl_params=ssl_params)
 x = xbee.XBee()
 
 command = None #bytearray(b"") # commands sent from aws
 
+
+# noinspection PyUnusedLocal
 def sub_cb(topic, msg):
     global command
     command = msg
@@ -90,7 +108,7 @@ def main():
         reconnect()
     stdout.write("")
     sample_loop = True  # if the buoy is sampling
-    while sample_loop is True:
+    while sample_loop:
         # check for commands from aws
         check_sub()
         # get data from logger board
