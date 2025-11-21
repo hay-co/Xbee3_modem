@@ -20,11 +20,11 @@ region = b'ca-central-1'      # ex: b'us-east-1'
 stdout.write("ready for client id\n")
 client_id = stdin.readline()
 stdout.write(client_id)
-stdin.flush()
+stdin.readline()
 stdout.write("ready for buoy name\n")
 buoy_name = stdin.readline()
 stdout.write(buoy_name)
-stdin.flush()
+stdin.readline()
 
 # noinspection PyTypeChecker
 status_topic = buoy_name[:-1] + "/status"
