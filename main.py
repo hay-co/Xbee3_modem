@@ -19,7 +19,7 @@ region = b'ca-central-1'      # ex: b'us-east-1'
 
 stdout.write("ready for client id\n")
 client_id = stdin.readline()
-client = bytearray(client_id[:-1])
+client = bytearray(client_id[:-1], "uft-8")
 stdout.write(client_id)
 stdin.readline()
 stdout.write("ready for buoy name\n")
