@@ -19,7 +19,6 @@ region = b'ca-central-1'      # ex: b'us-east-1'
 
 stdout.write("ready for client id\n")
 client_id = stdin.readline()
-client = bytearray(client_id[:-1], "uft-8")
 stdout.write(client_id)
 stdin.readline()
 stdout.write("ready for buoy name\n")
@@ -43,7 +42,7 @@ ssl_params = {'keyfile': "/flash/cert/aws.key",
               'certfile': "/flash/cert/aws.crt",
               'ca_certs': "/flash/cert/aws.ca"}  # ssl certs
 
-c = MQTTClient(client, aws_endpoint, ssl=True, ssl_params=ssl_params)
+c = MQTTClient(client_id, aws_endpoint, ssl=True, ssl_params=ssl_params)
 x = xbee.XBee()
 
 command = None #bytearray(b"") # commands sent from aws
